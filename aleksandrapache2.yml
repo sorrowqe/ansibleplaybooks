@@ -1,0 +1,31 @@
+
+---
+- hosts: webservers
+  tasks:
+    - name: install apache2
+      apt: name=apache2 update_cache=yes state=latest
+
+
+    - name: Loome public_html kataloog user_ile
+      file:
+       path=/home/aleksandr/public_html
+       owner=aleksandr
+       group=aleksandr
+       mode=0755
+       state=directory
+
+    - name: Lubame userdir mod
+      apache2_module: name=userdir state=present
+
+    - name: Kopeerime index.html faili USER_ile kodus_public_html kataloogi
+      copy:
+        src: /var/www/html/index.html
+        dest: /home/aleksandr/public_html/
+        remote_src: yes
+        owner: aleksandr
+        group: aleksandr
+   
+    - name: Alglaadimine Apache2
+      service:
+        name: apache2
+        state: restarted
