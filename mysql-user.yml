@@ -1,0 +1,65 @@
+---
+- name: Configure MySQL root user and secure login
+  hosts: webservers
+  become: yes
+  vars:
+    mysql_root_password: "qwerty"
+    my_cnf_file: "/root/.my.cnf"
+
+  tasks:
+    - name: Ensure root uses password authentication
+      community.mysql.mysql_user:
+        name: root
+        host_all: true
+        plugin: mysql_native_password
+        password: "{{ mysql_root_password }}"
+        priv: "*.*:ALL,GRANT"
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+        check_implicit_admin: yes
+        state: present
+
+    - name: Remove anonymous users (security)
+      community.mysql.mysql_user:
+        name: ""
+        host_all: true
+        state: absent
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+
+    - name: Remove test database (security)
+      community.mysql.mysql_db:
+        name: test
+        state: absent
+        login_user: root
+        login_password: "{{ mysql_root_password }}"
+
+    - name: Create /root/.my.cnf for passwordless root login
+      copy:
+        dest: "{{ my_cnf_file }}"
+        content: |
+          [client]
+          user=root
+          password={{ mysql_root_password }}
+        owner: root
+        group: root
+        mode: '0600'
+
+    - name: Ensure MySQL requires password for root login
+      community.mysql.mysql_user:
+        name: root
+        host_all: true
+        password: "{{ mysql_root_password }}"
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+        check_implicit_admin: yes
+        state: present
+
+    - name: Force root to use password authentication
+      community.mysql.mysql_user:
+        name: root
+        host_all: true
+        password: "{{ mysql_root_password }}"
+        plugin: mysql_native_password
+        priv: "*.*:ALL,GRANT"
+        login_unix_socket: /var/run/mysqld/mysqld.sock
+        check_implicit_admin: yes
+        state: present
