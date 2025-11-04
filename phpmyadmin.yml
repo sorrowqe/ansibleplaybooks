@@ -1,0 +1,29 @@
+---
+- name: phpMyAdmin paigaldamise playbook
+  hosts: webservers
+  become: true
+  tasks:
+
+
+
+    - name: Kontrolli, kas phpmyadmin on juba paigaldatud
+      ansible.builtin.shell: dpkg-query -W -f='${Status}' phpmyadmin 2>/dev/null | grep -c 'ok installed'
+      register: pma_status
+      changed_when: false
+      failed_when: false
+
+    - name: Naita kontrolli tulemust
+      ansible.builtin.debug:
+        msg: "phpMyAdmin install staatus: {{ pma_status.stdout }}"
+
+    - name: Paigalda phpmyadmin kui seda pole veel
+      apt:
+        name: phpmyadmin
+        state: present
+        update_cache: yes
+      when: pma_status.stdout == "0"
+
+    - name: Teata, et phpmyadmin on juba olemas
+      ansible.builtin.debug:
+        msg: "phpmyadmin on juba paigaldatud"
+      when: pma_status.stdout == "1"
