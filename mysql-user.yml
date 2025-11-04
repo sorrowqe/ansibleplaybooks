@@ -1,65 +1,34 @@
 ---
-- name: Configure MySQL root user and secure login
-  hosts: webservers
+- hosts: serverklient1
   become: yes
-  vars:
-    mysql_root_password: "qwerty"
-    my_cnf_file: "/root/.my.cnf"
-
   tasks:
-    - name: Ensure root uses password authentication
-      community.mysql.mysql_user:
-        name: root
-        host_all: true
-        plugin: mysql_native_password
-        password: "{{ mysql_root_password }}"
-        priv: "*.*:ALL,GRANT"
-        login_unix_socket: /var/run/mysqld/mysqld.sock
-        check_implicit_admin: yes
-        state: present
+    - name: Ensure MySQL is running
+      service:
+        name: mysql
+        state: started
+        enabled: yes
 
-    - name: Remove anonymous users (security)
-      community.mysql.mysql_user:
-        name: ""
-        host_all: true
-        state: absent
-        login_user: root
-        login_password: "{{ mysql_root_password }}"
+    # Set root password and force modern plugin (MySQL 8+)
+    - name: Set root password and plugin to caching_sha2_password
+      shell: |
+        mysql --protocol=socket -uroot -e "
+          ALTER USER 'root'@'localhost'
+          IDENTIFIED WITH caching_sha2_password BY 'qwerty';
+          FLUSH PRIVILEGES;
+        "
+      args:
+        executable: /bin/bash
 
-    - name: Remove test database (security)
-      community.mysql.mysql_db:
-        name: test
-        state: absent
-        login_user: root
-        login_password: "{{ mysql_root_password }}"
-
-    - name: Create /root/.my.cnf for passwordless root login
+    - name: Create /root/.my.cnf (0600)
       copy:
-        dest: "{{ my_cnf_file }}"
-        content: |
-          [client]
-          user=root
-          password={{ mysql_root_password }}
+        dest: /root/.my.cnf
         owner: root
         group: root
         mode: '0600'
+        content: |
+          [client]
+          user=root
+          password=qwerty
+          host=localhost
+          socket=/var/run/mysqld/mysqld.sock
 
-    - name: Ensure MySQL requires password for root login
-      community.mysql.mysql_user:
-        name: root
-        host_all: true
-        password: "{{ mysql_root_password }}"
-        login_unix_socket: /var/run/mysqld/mysqld.sock
-        check_implicit_admin: yes
-        state: present
-
-    - name: Force root to use password authentication
-      community.mysql.mysql_user:
-        name: root
-        host_all: true
-        password: "{{ mysql_root_password }}"
-        plugin: mysql_native_password
-        priv: "*.*:ALL,GRANT"
-        login_unix_socket: /var/run/mysqld/mysqld.sock
-        check_implicit_admin: yes
-        state: present
